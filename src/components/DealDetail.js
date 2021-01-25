@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  PanResponder,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import PropTypes from 'prop-types';
 import { priceDisplay } from '../utils';
 import ajax from '../ajax';
@@ -11,12 +20,11 @@ const DealDetail = (props) => {
     setCurrentDealId: PropTypes.func,
   };
 
+  const width = Dimensions.get('window').width;
   const [detail, setDetail] = useState([]);
   const [imageIndex, setImageIndex] = useState(0);
-  const {
-    deal: { key = '' } = {},
-    setCurrentDealId
-  } = props;
+  const { deal: { key = '' } = {}, setCurrentDealId } = props;
+
   const {
     title = '',
     price = 0,
@@ -26,6 +34,29 @@ const DealDetail = (props) => {
     description = '',
   } = detail;
   const { avatar = '', name: userName = '' } = user;
+  const imageXPos = new Animated.Value(0);
+
+  const handleSwipe = () => {
+    setImageIndex(imageIndex + 1);
+  };
+
+  const imagePanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (evt, gs) => {
+      imageXPos.setValue(gs.dx);
+    },
+    onPanResponderRelease: (evt, gs) => {
+      if (Math.abs(gs.dx) > 1 * width * 0.4) {
+        const direction = Math.sign(gs.dx);
+        // Swipe left
+        Animated.timing(imageXPos, {
+          toValue: direction * width,
+          duration: 250,
+          useNativeDriver: true
+        }).start(() => handleSwipe());
+      }
+    },
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -39,12 +70,16 @@ const DealDetail = (props) => {
   return (
     <View style={styles.list}>
       <TouchableOpacity>
-        <Text
-          style={styles.backBtn}
-          onPress={onBack}
-        >Back</Text>
+        <Text style={styles.backBtn} onPress={onBack}>
+          Back
+        </Text>
       </TouchableOpacity>
-      <Image style={styles.image} source={{ uri: media[imageIndex] }} />
+      <Animated.Image
+        {...imagePanResponder.panHandlers}
+        style={[styles.image, { transform: [{ translateX: imageXPos }] }]}
+        
+        source={{ uri: media[imageIndex] }}
+      />
       <View style={styles.content}>
         <Text style={styles.title}>{title}</Text>
         <View style={styles.subTitle}>
@@ -129,7 +164,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 20,
     marginBottom: 10,
-  }
+  },
 });
 
 export default DealDetail;
